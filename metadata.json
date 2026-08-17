@@ -1,0 +1,6 @@
+{
+  "name": "NIGGAN FINANCES",
+  "description": "Sistema pessoal de controle financeiro rápido, moderno e de alta performance com gestão de TikTok Shop, patrimônio e metas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
