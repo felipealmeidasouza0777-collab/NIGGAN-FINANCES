@@ -272,13 +272,13 @@ class AIFinancialService {
     };
   }
 
-  public async askFinancialAdvisor(
+  private localFallbackAnswer(
     question: string,
     summary: any,
     transactions: any[],
     tiktokEntries: any[],
     settings: any
-  ): Promise<string> {
+  ): string {
     const res = this.answerFinancialQuestion(question, {
       settings,
       accounts: [],
@@ -292,6 +292,44 @@ class AIFinancialService {
       selectedMonthYear: '2026-08',
     });
     return res.answer;
+  }
+
+  /**
+   * Asks the real Gemini-powered backend (server.ts / POST /api/ai/ask).
+   * Falls back to the local rule-based engine if the server is offline,
+   * not configured with a GEMINI_API_KEY, or returns an error — so the
+   * advisor tab always answers something, online or not.
+   */
+  public async askFinancialAdvisor(
+    question: string,
+    summary: any,
+    transactions: any[],
+    tiktokEntries: any[],
+    settings: any
+  ): Promise<{ answer: string; source: 'gemini' | 'local' }> {
+    try {
+      const response = await fetch('/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          context: { summary, tiktokEntries, settings, recentTransactions: transactions.slice(0, 20) },
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return { answer: data.answer, source: 'gemini' };
+      }
+    } catch (err) {
+      // Server not running / network unavailable — fall through to local mode
+      console.warn('[aiFinancialService] Backend de IA indisponível, usando modo local.', err);
+    }
+
+    return {
+      answer: this.localFallbackAnswer(question, summary, transactions, tiktokEntries, settings),
+      source: 'local',
+    };
   }
 }
 

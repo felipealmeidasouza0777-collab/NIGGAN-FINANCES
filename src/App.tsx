@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { db } from './services/database/storage';
 import { computeFinancialSummary } from './lib/finance';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { QuickTransactionModal } from './components/QuickTransactionModal';
 import { TransferModal } from './components/TransferModal';
+import { Login } from './components/Login';
+import { isSupabaseConfigured } from './services/supabase/client';
+import { authService } from './services/supabase/authService';
+import { pullRemoteState, scheduleRemotePush } from './services/supabase/syncService';
+import { CloudCheck, CloudOff, Loader2 } from 'lucide-react';
 
 // Views
 import { DashboardView } from './components/views/DashboardView';
@@ -33,12 +39,61 @@ export default function App() {
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // --- Supabase auth & cloud sync (fully optional: without env vars the app
+  // behaves exactly like before, offline-only via localStorage) ---
+  const [session, setSession] = useState<Session | null>(null);
+  const [authChecked, setAuthChecked] = useState(!isSupabaseConfigured);
+  const [hydratedFromCloud, setHydratedFromCloud] = useState(!isSupabaseConfigured);
+  const skipNextPush = useRef(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    let unsubscribeAuth: () => void = () => {};
+
+    authService.getSession().then(async (initialSession) => {
+      setSession(initialSession);
+      setAuthChecked(true);
+
+      if (initialSession) {
+        const remote = await pullRemoteState(initialSession.user.id);
+        if (remote) {
+          skipNextPush.current = true;
+          db.importDataJSON(JSON.stringify(remote));
+        }
+      }
+      setHydratedFromCloud(true);
+    });
+
+    unsubscribeAuth = authService.onAuthStateChange(async (nextSession) => {
+      setSession(nextSession);
+      if (nextSession) {
+        const remote = await pullRemoteState(nextSession.user.id);
+        if (remote) {
+          skipNextPush.current = true;
+          db.importDataJSON(JSON.stringify(remote));
+        }
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
   useEffect(() => {
     const unsubscribe = db.subscribe((nextState) => {
       setData(nextState);
+
+      if (isSupabaseConfigured && session) {
+        if (skipNextPush.current) {
+          // This update came FROM the cloud (just hydrated) — don't echo it back.
+          skipNextPush.current = false;
+          return;
+        }
+        scheduleRemotePush(session.user.id, nextState);
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [session]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -74,6 +129,36 @@ export default function App() {
   const variableTransactions = data.transactions.filter((t) => t.type === 'expense');
   const boxTransactions = data.transactions.filter((t) => t.type === 'transfer');
 
+  if (!authChecked || !hydratedFromCloud) {
+    return (
+      <div className="min-h-screen bg-slate-100/60 flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isSupabaseConfigured && !session) {
+    return <Login onSuccess={() => {}} />;
+  }
+
+  const syncBadge = isSupabaseConfigured ? (
+    <div
+      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/70 backdrop-blur-md border border-white shadow-2xs text-[10px] font-bold text-emerald-700"
+      title={`Sincronizado como ${session?.user.email ?? ''}`}
+    >
+      <CloudCheck className="w-3.5 h-3.5" />
+      <span>Nuvem</span>
+    </div>
+  ) : (
+    <div
+      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/70 backdrop-blur-md border border-white shadow-2xs text-[10px] font-bold text-slate-400"
+      title="Configure o Supabase (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY) para sincronizar na nuvem"
+    >
+      <CloudOff className="w-3.5 h-3.5" />
+      <span>Modo local</span>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-100/60 text-slate-800 antialiased pb-24 md:pb-12 flex flex-col font-sans">
       {/* Toast Notification */}
@@ -88,10 +173,14 @@ export default function App() {
 
       {/* Header */}
       <Header
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        availableBalanceInCents={summary.currentAvailableInCents}
+        currentTab={activeTab}
+        onTabChange={setActiveTab}
         onOpenQuickAdd={() => handleOpenQuickAdd('expense')}
+        summary={summary}
+        selectedMonthYear={data.selectedMonthYear || '2026-08'}
+        onMonthChange={(monthYear) => db.setSelectedMonthYear(monthYear)}
+        onOpenAI={() => setActiveTab('ai_advisor')}
+        syncStatus={syncBadge}
       />
 
       {/* Main Content Area */}

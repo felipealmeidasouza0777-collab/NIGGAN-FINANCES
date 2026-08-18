@@ -21,6 +21,8 @@ interface HeaderProps {
   selectedMonthYear: string;
   onMonthChange: (monthYear: string) => void;
   onOpenAI: () => void;
+  /** Optional cloud-sync status pill (e.g. "Sincronizado" / "Modo local"), rendered next to Quick Add. */
+  syncStatus?: React.ReactNode;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   selectedMonthYear,
   onMonthChange,
   onOpenAI,
+  syncStatus,
 }) => {
   const monthOptions = [
     { value: '2026-08', label: 'Agosto / 2026' },
@@ -165,6 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right Actions: Month Picker + Quick Entry Button + User Avatar */}
           <div className="flex items-center gap-2.5 sm:gap-3.5">
+            {syncStatus}
             {/* Month Selector in Glass Container */}
             <div className="relative flex items-center bg-white/70 backdrop-blur-md hover:bg-white/90 border border-white shadow-2xs rounded-2xl px-3 py-1.5 transition-all">
               <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" />

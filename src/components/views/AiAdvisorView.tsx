@@ -27,7 +27,9 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
   tiktokEntries,
   settings,
 }) => {
-  const [messages, setMessages] = useState<{ id: string; sender: 'user' | 'ai'; text: string }[]>([
+  const [messages, setMessages] = useState<
+    { id: string; sender: 'user' | 'ai'; text: string; source?: 'gemini' | 'local' }[]
+  >([
     {
       id: 'init_1',
       sender: 'ai',
@@ -57,7 +59,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
     setLoading(true);
 
     try {
-      const responseText = await aiFinancialService.askFinancialAdvisor(
+      const { answer, source } = await aiFinancialService.askFinancialAdvisor(
         questionText,
         summary,
         transactions,
@@ -67,7 +69,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
 
       setMessages([
         ...newMessages,
-        { id: `ai_${Date.now()}`, sender: 'ai' as const, text: responseText },
+        { id: `ai_${Date.now()}`, sender: 'ai' as const, text: answer, source },
       ]);
     } catch (err) {
       setMessages([
@@ -145,6 +147,17 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
                     : 'bg-slate-100/90 text-slate-800 rounded-bl-xs border border-slate-200/50'
                 }`}
               >
+                {m.source && (
+                  <span
+                    className={`inline-block mb-1.5 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${
+                      m.source === 'gemini'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {m.source === 'gemini' ? '✨ Gemini' : 'Modo local'}
+                  </span>
+                )}
                 <div className="whitespace-pre-line">{m.text}</div>
               </div>
 

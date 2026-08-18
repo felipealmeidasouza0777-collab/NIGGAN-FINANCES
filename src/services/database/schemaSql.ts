@@ -172,3 +172,24 @@ CREATE POLICY "Users can manage their tiktok_entries" ON public.tiktok_entries F
 CREATE POLICY "Users can manage their tiktok_reinvest_expenses" ON public.tiktok_reinvest_expenses FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage their monthly_patrimony_goals" ON public.monthly_patrimony_goals FOR ALL USING (auth.uid() = user_id);
 `;
+
+// Schema mínimo, recomendado para ativar a sincronização hoje: um JSONB por
+// usuário guardando o estado inteiro do app. Veja src/services/database/appStateSchema.sql
+export const APP_STATE_SCHEMA_SQL = `-- =========================================================================
+-- NIGGAN FINANCES — SCHEMA MÍNIMO DE SINCRONIZAÇÃO (RECOMENDADO PARA COMEÇAR)
+-- =========================================================================
+
+create table if not exists public.app_state (
+  user_id uuid references auth.users on delete cascade primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.app_state enable row level security;
+
+create policy "Usuários só acessam seu próprio estado"
+  on public.app_state
+  for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+`;

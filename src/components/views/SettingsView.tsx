@@ -14,6 +14,9 @@ import {
   ShieldAlert,
   Code,
   FileSpreadsheet,
+  CloudCheck,
+  CloudOff,
+  LogOut,
 } from 'lucide-react';
 import {
   FinancialSettings,
@@ -24,8 +27,10 @@ import {
   MonthlyPatrimonyGoal,
 } from '../../types/finance';
 import { db } from '../../services/database/storage';
-import { SUPABASE_SCHEMA_SQL } from '../../services/database/schemaSql';
+import { SUPABASE_SCHEMA_SQL, APP_STATE_SCHEMA_SQL } from '../../services/database/schemaSql';
 import { formatCurrency } from '../../lib/finance';
+import { isSupabaseConfigured } from '../../services/supabase/client';
+import { authService } from '../../services/supabase/authService';
 
 interface SettingsViewProps {
   settings: FinancialSettings;
@@ -102,6 +107,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setCopiedSql(true);
     setTimeout(() => setCopiedSql(false), 2500);
     onSuccessToast('SQL do Supabase copiado para a área de transferência!');
+  };
+
+  const [copiedAppStateSql, setCopiedAppStateSql] = useState(false);
+  const handleCopyAppStateSql = () => {
+    navigator.clipboard.writeText(APP_STATE_SCHEMA_SQL);
+    setCopiedAppStateSql(true);
+    setTimeout(() => setCopiedAppStateSql(false), 2500);
+    onSuccessToast('SQL de sincronização copiado para a área de transferência!');
+  };
+
+  const handleSignOut = async () => {
+    await authService.signOut();
+    window.location.reload();
   };
 
   const handleExportJson = () => {
@@ -342,6 +360,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
+      {/* Connection Status */}
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              isSupabaseConfigured ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
+            }`}
+          >
+            {isSupabaseConfigured ? <CloudCheck className="w-5 h-5" /> : <CloudOff className="w-5 h-5" />}
+          </div>
+          <div>
+            <h3 className="font-extrabold text-sm text-slate-900">
+              {isSupabaseConfigured ? 'Conectado ao Supabase' : 'Rodando em modo local'}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {isSupabaseConfigured
+                ? 'Seus dados são salvos na nuvem e sincronizam entre dispositivos.'
+                : 'Dados salvos apenas neste navegador. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no .env para ativar a nuvem.'}
+            </p>
+          </div>
+        </div>
+        {isSupabaseConfigured && (
+          <button
+            onClick={handleSignOut}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sair da conta</span>
+          </button>
+        )}
+      </div>
+
       {/* Supabase Architecture / Schema SQL Viewer */}
       <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-lg space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -352,24 +402,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-base text-white">
-                  Arquitetura Supabase / PostgreSQL
+                  Sincronização na Nuvem — Passo 1
                 </h3>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400">
-                  Pronto para Produção
+                  Recomendado
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Schema DDL com tabelas normalizadas, inteiros em centavos, RLS e índices otimizados
+                Tabela única (JSONB) que guarda todo o app com RLS — o mínimo necessário para ativar login e nuvem hoje
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleCopyAppStateSql}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+          >
+            {copiedAppStateSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            <span>{copiedAppStateSql ? 'Copiado!' : 'Copiar SQL de Sincronização'}</span>
+          </button>
+        </div>
+
+        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono max-h-60 overflow-y-auto text-emerald-400/90 leading-relaxed">
+          <pre>{APP_STATE_SCHEMA_SQL}</pre>
+        </div>
+
+        <p className="text-[11px] text-slate-400">
+          💡 Cole este SQL no <strong>SQL Editor</strong> do seu projeto Supabase, preencha <code>VITE_SUPABASE_URL</code> e <code>VITE_SUPABASE_ANON_KEY</code> no <code>.env</code>, e o app passa a pedir login e sincronizar sozinho.
+        </p>
+      </div>
+
+      {/* Full normalized schema (optional, for later) */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-lg space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-base text-white">
+                  Schema Relacional Completo
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400">
+                  Avançado / Opcional
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Tabelas normalizadas por entidade, para quando fizer sentido migrar do modelo JSONB
               </p>
             </div>
           </div>
 
           <button
             onClick={handleCopySql}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
           >
             {copiedSql ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            <span>{copiedSql ? 'Copiado!' : 'Copiar SQL do Supabase'}</span>
+            <span>{copiedSql ? 'Copiado!' : 'Copiar SQL Completo'}</span>
           </button>
         </div>
 
@@ -378,7 +468,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <p className="text-[11px] text-slate-400">
-          💡 Para migrar para a nuvem, basta abrir o SQL Editor no painel do seu projeto no Supabase e colar o script acima. O frontend está totalmente desacoplado através de <code>src/services/database/storage.ts</code>.
+          💡 Este schema não é usado automaticamente pelo app — é uma referência para uma futura migração para tabelas normalizadas.
         </p>
       </div>
     </div>
