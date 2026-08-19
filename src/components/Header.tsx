@@ -48,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/60 shadow-xs transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18">
+        <div className="flex items-center justify-between h-16 sm:h-18">
           {/* Brand Logo & Name */}
           <div className="flex items-center gap-3">
             <button
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <h1 className="text-lg font-black tracking-tight text-slate-900 flex items-center gap-1.5">
                   NIGGAN <span className="text-emerald-600">FINANCES</span>
                 </h1>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                <p className="hidden sm:block text-[10px] uppercase tracking-widest text-slate-400 font-bold">
                   Controle Pessoal & TikTok Shop
                 </p>
               </div>
@@ -166,17 +166,17 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </nav>
 
-          {/* Right Actions: Month Picker + Quick Entry Button + User Avatar */}
+          {/* Right Actions: Month Picker + Quick Entry Button (desktop only — mobile already has the FAB in BottomNav) */}
           <div className="flex items-center gap-2.5 sm:gap-3.5">
             {syncStatus}
             {/* Month Selector in Glass Container */}
-            <div className="relative flex items-center bg-white/70 backdrop-blur-md hover:bg-white/90 border border-white shadow-2xs rounded-2xl px-3 py-1.5 transition-all">
-              <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1.5 shrink-0" />
+            <div className="relative flex items-center bg-white/70 backdrop-blur-md hover:bg-white/90 border border-white shadow-2xs rounded-2xl px-2.5 sm:px-3 py-1.5 transition-all">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 mr-1 sm:mr-1.5 shrink-0" />
               <select
                 aria-label="Selecionar mês de referência"
                 value={selectedMonthYear}
                 onChange={(e) => onMonthChange(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer pr-1"
+                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden cursor-pointer pr-1 max-w-[92px] sm:max-w-none"
               >
                 {monthOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -186,15 +186,14 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
-            {/* Quick Add Button with Frosted Glow */}
+            {/* Quick Add Button — only on desktop/tablet; mobile relies on the BottomNav FAB */}
             <button
               onClick={() => onOpenQuickAdd()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 active:scale-95 text-white shadow-md shadow-slate-900/15 border border-slate-700/60 transition-all cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold bg-slate-900 hover:bg-slate-800 active:scale-95 text-white shadow-md shadow-slate-900/15 border border-slate-700/60 transition-all cursor-pointer"
               title="Adicionar movimentação em segundos"
             >
               <Plus className="w-4 h-4 stroke-[2.5] text-emerald-400" />
-              <span className="hidden sm:inline">Lançar</span>
-              <span className="sm:hidden">+</span>
+              <span>Lançar</span>
             </button>
           </div>
         </div>

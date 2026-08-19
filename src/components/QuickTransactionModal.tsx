@@ -7,15 +7,13 @@ import {
   ArrowLeftRight,
   Check,
   Zap,
-  Sparkles,
-  Calendar,
-  Wallet,
-  Tag,
-  Video,
+  ChevronDown,
+  AlertCircle,
 } from 'lucide-react';
 import { TransactionType, Category, Account } from '../types/finance';
 import { db } from '../services/database/storage';
 import { formatCurrency, parseCurrencyToCents } from '../lib/finance';
+import { getCategoryIcon } from '../lib/categoryIcon';
 
 interface QuickTransactionModalProps {
   isOpen: boolean;
@@ -44,6 +42,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
   const [incomeSource, setIncomeSource] = useState<string>('Salário FGL Brasil');
   const [tiktokSalesCount, setTiktokSalesCount] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showMoreDetails, setShowMoreDetails] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,6 +54,8 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
       setRawAmount('');
       setDescription('');
       setDate(new Date().toISOString().split('T')[0]);
+      setShowMoreDetails(false);
+      setErrorMessage(null);
 
       // Set sensible defaults
       if (accounts.length > 0) {
@@ -78,6 +80,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
   // Update default category when type changes
   const handleTypeChange = (newType: TransactionType) => {
     setType(newType);
+    setErrorMessage(null);
     const available = categories.filter(c => c.type === newType);
     if (available.length > 0) {
       setCategoryId(available[0].id);
@@ -100,15 +103,22 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     const amountInCents = parseCurrencyToCents(rawAmount);
 
     if (amountInCents <= 0) {
-      alert('Por favor, informe um valor maior que zero.');
+      setErrorMessage('Informe um valor maior que zero.');
+      inputRef.current?.focus();
       return;
     }
 
     if (!accountId) {
-      alert('Selecione uma conta.');
+      setErrorMessage('Selecione uma conta.');
+      return;
+    }
+
+    if (type === 'transfer' && (!toAccountId || toAccountId === accountId)) {
+      setErrorMessage('Selecione uma conta de destino diferente da de origem.');
       return;
     }
 
@@ -146,13 +156,18 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-150">
       <div
-        className="w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-[32px] shadow-2xl border border-white overflow-hidden animate-in zoom-in-95 duration-150"
+        className="w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-white/95 sm:bg-white/90 backdrop-blur-2xl rounded-t-[32px] sm:rounded-[32px] shadow-2xl border border-white animate-in slide-in-from-bottom sm:zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Drag handle (mobile only) */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1.5 rounded-full bg-slate-300" />
+        </div>
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-200/50 bg-white/50">
+        <div className="flex items-center justify-between px-6 pt-3 sm:pt-5 pb-4 border-b border-slate-200/50 bg-white/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-800 flex items-center justify-center border border-emerald-500/20 shadow-2xs">
               <Zap className="w-5 h-5" />
@@ -176,52 +191,52 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
             <button
               type="button"
               onClick={() => handleTypeChange('expense')}
-              className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-1 transition-all cursor-pointer ${
+              className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 type === 'expense'
                   ? 'bg-rose-500 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <ArrowUpRight className="w-3.5 h-3.5" />
+              <ArrowUpRight className="w-4 h-4" />
               <span>Despesa</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleTypeChange('income')}
-              className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-1 transition-all cursor-pointer ${
+              className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 type === 'income'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <ArrowDownRight className="w-3.5 h-3.5" />
+              <ArrowDownRight className="w-4 h-4" />
               <span>Receita</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleTypeChange('investment')}
-              className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-1 transition-all cursor-pointer ${
+              className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 type === 'investment'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <TrendingUp className="w-3.5 h-3.5" />
+              <TrendingUp className="w-4 h-4" />
               <span>Investir</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleTypeChange('transfer')}
-              className={`py-2 px-2 rounded-xl text-xs font-black flex flex-col sm:flex-row items-center justify-center gap-1 transition-all cursor-pointer ${
+              className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 type === 'transfer'
                   ? 'bg-purple-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <ArrowLeftRight className="w-4 h-4" />
               <span>Transf.</span>
             </button>
           </div>
@@ -238,7 +253,10 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                 type="text"
                 inputMode="decimal"
                 value={rawAmount}
-                onChange={(e) => setRawAmount(e.target.value)}
+                onChange={(e) => {
+                  setRawAmount(e.target.value);
+                  if (errorMessage) setErrorMessage(null);
+                }}
                 placeholder="0,00"
                 className="w-48 text-center text-3xl sm:text-4xl font-black font-mono-num text-slate-900 placeholder:text-slate-300 focus:outline-hidden bg-transparent tracking-tight"
                 required
@@ -306,7 +324,7 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
                       const matchingCat = categories.find(c => c.name.toLowerCase().includes(src.toLowerCase().split(' ')[0]));
                       if (matchingCat) setCategoryId(matchingCat.id);
                     }}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold text-left border transition-all ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold text-left border transition-all ${
                       incomeSource === src
                         ? src === 'TikTok Shop'
                           ? 'bg-purple-50 border-purple-300 text-purple-800'
@@ -339,104 +357,142 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
             </div>
           )}
 
-          {/* Category & Account Selection */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {type !== 'transfer' && (
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Categoria
-                </label>
-                <select
-                  aria-label="Selecionar categoria"
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
-                  required
-                >
-                  {filteredCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
+          {/* Category Chips (tap once, no dropdown) */}
+          {type !== 'transfer' && filteredCategories.length > 0 && (
             <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                {type === 'transfer' ? 'Conta de Origem' : 'Conta'}
-              </label>
-              <select
-                aria-label={type === 'transfer' ? 'Selecionar conta de origem' : 'Selecionar conta'}
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
-                required
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} ({formatCurrency(a.currentBalanceInCents)})
-                  </option>
-                ))}
-              </select>
+              <label className="text-xs font-bold text-slate-700 block mb-1.5">Categoria</label>
+              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 sm:flex-wrap sm:overflow-visible">
+                {filteredCategories.map((c) => {
+                  const Icon = getCategoryIcon(c.iconName);
+                  const isSelected = categoryId === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCategoryId(c.id)}
+                      className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'text-white shadow-xs border-transparent'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                      style={isSelected ? { backgroundColor: c.color } : undefined}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">{c.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+          )}
 
-            {type === 'transfer' && (
+          {/* Account Selection — only shown when there's an actual choice to make */}
+          {accounts.length > 1 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Conta de Destino
+                  {type === 'transfer' ? 'Conta de Origem' : 'Conta'}
                 </label>
                 <select
-                  aria-label="Selecionar conta de destino"
-                  value={toAccountId}
-                  onChange={(e) => setToAccountId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
+                  aria-label={type === 'transfer' ? 'Selecionar conta de origem' : 'Selecionar conta'}
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
                   required
                 >
-                  {accounts.filter(a => a.id !== accountId).map((a) => (
+                  {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
                       {a.name} ({formatCurrency(a.currentBalanceInCents)})
                     </option>
                   ))}
                 </select>
               </div>
+
+              {type === 'transfer' && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Conta de Destino
+                  </label>
+                  <select
+                    aria-label="Selecionar conta de destino"
+                    value={toAccountId}
+                    onChange={(e) => setToAccountId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
+                    required
+                  >
+                    {accounts.filter(a => a.id !== accountId).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({formatCurrency(a.currentBalanceInCents)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Transfer always needs a destination account, even with only 2 accounts total */}
+          {accounts.length === 1 && type === 'transfer' && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-2.5">
+              Você precisa de pelo menos 2 contas cadastradas para fazer uma transferência.
+            </p>
+          )}
+
+          {/* Secondary fields, collapsed by default: description already has a sensible auto-fallback and date defaults to today */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowMoreDetails(!showMoreDetails)}
+              className="w-full flex items-center justify-between text-xs font-bold text-slate-500 hover:text-slate-800 py-1.5 cursor-pointer"
+            >
+              <span>Mais detalhes (descrição, data)</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showMoreDetails ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showMoreDetails && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 animate-in fade-in duration-150">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Descrição (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex: Almoço, Uber, Posto..."
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">
+                    Data
+                  </label>
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
+                    required
+                  />
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Description & Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Descrição (Opcional)
-              </label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Almoço, Uber, Posto..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-emerald-500"
-              />
+          {/* Inline validation (no jarring native alerts) */}
+          {errorMessage && (
+            <div className="flex items-center gap-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
             </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-700 block mb-1">
-                Data
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-hidden focus:border-emerald-500"
-                required
-              />
-            </div>
-          </div>
+          )}
 
           {/* Submit Action */}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full mt-2 py-3 px-4 rounded-xl text-sm font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="w-full mt-2 py-3.5 px-4 rounded-xl text-sm font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <Check className="w-4 h-4 stroke-[3] text-emerald-400" />
             <span>Salvar Movimentação</span>
@@ -446,3 +502,4 @@ export const QuickTransactionModal: React.FC<QuickTransactionModalProps> = ({
     </div>
   );
 };
+
